@@ -8,7 +8,7 @@
 <div class="card p-4 shadow-sm border-0 bg-light mb-4">
     <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث المقترح لبناء المنهجية الكاملة:</label>
     <div class="input-group">
-        <input type="text" id="proposalTitle" class="form-control form-control-lg shadow-none" placeholder="مثال: حوكمة الشركات ودورها في تعزيز كفاءة القطاع المصرفي">
+        <input type="text" id="proposalTitle" class="form-control form-control-lg shadow-none" placeholder="مثال: أثر القيادة التحويلية على الأداء الوظيفي للموظفين">
         <button onclick="generateProposal()" class="btn btn-warning btn-lg fw-bold text-dark px-4">توليد خطة البحث المنهجية ✨</button>
     </div>
 </div>
@@ -24,10 +24,11 @@
     
     <div id="proposalLoading" class="text-center py-5 d-none">
         <div class="spinner-grow text-warning" role="status"></div>
-        <p class="mt-2 fw-bold text-secondary">يقوم DeepSeek ببناء مشكلة البحث، الفرضيات والأدوات المنهجية الـ10 حالياً...</p>
+        <p class="mt-2 fw-bold text-secondary">جاري بناء مشكلة البحث، الفرضيات والأدوات المنهجية الـ10 حالياً...</p>
     </div>
     
-    <div id="proposalOutput" class="clean-output text-justify" style="min-height: 400px; line-height: 2;">
+    <!-- تم تعديل الاستايل هنا ليدعم الحفاظ على الأسطر والفقرات النظيفة بشكل تلقائي ورصين -->
+    <div id="proposalOutput" class="clean-output text-justify" style="min-height: 400px; line-height: 2; white-space: pre-wrap; font-size: 1.15rem; color: #2d3748; padding: 15px; background-color: #fcfcfc; border-radius: 8px;">
         بمجرد إدخال العنوان وضغط زر التوليد، ستظهر هنا الخطة المنهجية المكونة من (المقدمة، المشكلة، التساؤلات، الأهمية، الأهداف، الفرضيات، المتغيرات، الحدود، الأدوات، والدراسات السابقة المعيارية).
     </div>
 </div>
@@ -50,7 +51,9 @@ function generateProposal() {
         document.getElementById('proposalLoading').classList.add('d-none');
         document.getElementById('proposalOutput').classList.remove('d-none');
         if(data.result) {
-            document.getElementById('proposalOutput').innerText = data.result;
+            // كود إضافي لتنظيف أي رموز نجمية أو زوائد وجعل النص في غاية النقاء
+            let cleanText = data.result.replace(/\*\*/g, '').replace(/\*/g, '•');
+            document.getElementById('proposalOutput').innerText = cleanText;
         }
     });
 }
