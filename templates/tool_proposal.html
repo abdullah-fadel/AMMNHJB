@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold text-dark">📋 أداة كتابة وصياغة خطة البحث المنهجية</h3>
+    <a href="{{ url_for('tools_menu') }}" class="btn btn-back fw-bold">⬅️ العودة لقائمة الأدوات</a>
+</div>
+
+<div class="card p-4 shadow-sm border-0 bg-light mb-4">
+    <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث المقترح لبناء المنهجية الكاملة:</label>
+    <div class="input-group">
+        <input type="text" id="proposalTitle" class="form-control form-control-lg shadow-none" placeholder="مثال: حوكمة الشركات ودورها في تعزيز كفاءة القطاع المصرفي">
+        <button onclick="generateProposal()" class="btn btn-warning btn-lg fw-bold text-dark px-4">توليد خطة البحث المنهجية ✨</button>
+    </div>
+</div>
+
+<div class="card p-4 shadow-sm border-0">
+    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+        <h4 class="fw-bold text-secondary mb-0">المنهجية والخطة المتكاملة المنبثقة:</h4>
+        <div>
+            <button onclick="clearProposal()" class="btn btn-sm btn-outline-secondary me-2">🧹 مسح</button>
+            <button onclick="copyProposal()" class="btn btn-sm btn-primary px-3 fw-bold">📋 نسخ الخطة بالكامل</button>
+        </div>
+    </div>
+    
+    <div id="proposalLoading" class="text-center py-5 d-none">
+        <div class="spinner-grow text-warning" role="status"></div>
+        <p class="mt-2 fw-bold text-secondary">يقوم DeepSeek ببناء مشكلة البحث، الفرضيات والأدوات المنهجية الـ10 حالياً...</p>
+    </div>
+    
+    <div id="proposalOutput" class="clean-output text-justify" style="min-height: 400px; line-height: 2;">
+        بمجرد إدخال العنوان وضغط زر التوليد، ستظهر هنا الخطة المنهجية المكونة من (المقدمة، المشكلة، التساؤلات، الأهمية، الأهداف، الفرضيات، المتغيرات، الحدود، الأدوات، والدراسات السابقة المعيارية).
+    </div>
+</div>
+
+<script>
+function generateProposal() {
+    const title = document.getElementById('proposalTitle').value;
+    if(!title.trim()) { alert('يرجى إدخال عنوان البحث أولاً!'); return; }
+    
+    document.getElementById('proposalOutput').classList.add('d-none');
+    document.getElementById('proposalLoading').classList.remove('d-none');
+    
+    fetch('/tools/proposal', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: title})
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('proposalLoading').classList.add('d-none');
+        document.getElementById('proposalOutput').classList.remove('d-none');
+        if(data.result) {
+            document.getElementById('proposalOutput').innerText = data.result;
+        }
+    });
+}
+
+function clearProposal() {
+    document.getElementById('proposalTitle').value = "";
+    document.getElementById('proposalOutput').innerText = "بمجرد إدخال العنوان وضغط زر التوليد، ستظهر هنا الخطة المنهجية...";
+}
+
+function copyProposal() {
+    const text = document.getElementById('proposalOutput').innerText;
+    navigator.clipboard.writeText(text);
+    alert('تم نسخ خطة البحث والمنهجية بالكامل بنجاح! 📋');
+}
+</script>
+{% endblock %}
