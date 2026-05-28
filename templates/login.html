@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="col-md-5">
+        <div class="card p-4 shadow">
+            <h3 class="fw-bold text-center text-primary mb-4">بوابة تسجيل دخول المشرف</h3>
+            {% if error %}
+                <div class="alert alert-danger text-center">{{ error }}</div>
+            {% endif %}
+            <form action="{{ url_for('login') }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">اسم المستخدم:</label>
+                    <input type="text" name="username" class="form-content form-control" required autocomplete="off">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-bold">كلمة المرور:</label>
+                    <input type="password" name="password" class="form-content form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">دخول للوحة التحكم 🔐</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
