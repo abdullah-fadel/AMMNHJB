@@ -7,37 +7,57 @@
 
 <div class="card p-4 shadow-sm border-0 bg-light mb-4">
     <form method="POST" action="{{ url_for('tool_search') }}">
-        <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث أو الكلمات المفتاحية الدقيقة لطلب المصادر:</label>
+        <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث أو الكلمات المفتاحية الدقيقة لطلب المصادر الكبرى (50 مصدر خالي من التكرار):</label>
         <div class="input-group">
-            <input type="text" name="query" class="form-control form-control-lg shadow-none" placeholder="مثال: المناخ الأخلاقي أو إدارة الأزمات" value="{{ query }}">
-            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 بحث بواسطة DeepSeek v4 pro</button>
+            <input type="text" name="query" class="form-control form-control-lg shadow-none" placeholder="مثال: المناخ الأخلاقي أو إدارة الأزمات" value="{{ query }}" required>
+            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 استخراج 50 مصدر حقيقي بروابطها</button>
         </div>
+        <small class="text-muted d-block mt-2">💡 ميزة جديدة: اضغط على عنوان أي بحث للذهاب مباشرة إلى الرابط الرئيسي للمصدر على الويب.</small>
     </form>
 </div>
 
 {% if query %}
-<h5 class="fw-bold mb-3 text-secondary">تم العثور على ({{ results|length }}) مصادر علمية حديثة وموثقة لـ "{{ query }}":</h5>
+<div class="alert alert-info border-0 shadow-sm mb-4 fw-bold text-dark">
+    📊 تم بنجاح استخراج وفلترة ({{ results|length }}) مصادر علمية دقيقة، حقيقية وغير مكررة لـ "{{ query }}":
+</div>
 
 <div class="row">
     {% for res in results %}
     <div class="col-12 mb-3">
-        <div class="card shadow-sm border-0 border-start border-primary border-4 p-4 bg-white rounded">
+        <div class="card shadow-sm border-0 border-start border-primary border-4 p-4 bg-white rounded transition-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div style="flex-grow: 1;">
-                    <h5 class="fw-bold text-dark mb-3">📄 {{ res.title }}</h5>
+                    <h5 class="fw-bold mb-3">
+                        <a href="{{ res.url }}" target="_blank" class="text-primary text-decoration-none hover-link" title="اضغط للانتقال إلى الرابط المباشر للمصدر">
+                            🔗 {{ res.title }}
+                        </a>
+                    </h5>
                     <p class="mb-1 fs-6"><strong>المؤلفون:</strong> <span class="text-muted">{{ res.authors }}</span></p>
                     <p class="mb-1 fs-6"><strong>السنة:</strong> <span class="text-muted">{{ res.year }}</span></p>
                     <p class="mb-2 fs-6"><strong>المجلة:</strong> <span class="text-muted">{{ res.journal }}</span></p>
-                    <p class="mb-0 fs-6 text-justify" style="line-height: 1.7;"><strong>الخلاصة:</strong> <span class="text-secondary">{{ res.abstract }}</span></p>
+                    <p class="mb-0 fs-6 text-justify" style="line-height: 1.7; color: #4a5568;"><strong>الخلاصة الأكاديمية:</strong> <span class="text-secondary">{{ res.abstract }}</span></p>
                 </div>
-                <!-- زر التحميل متناسق يساراً كما في التصميم الأصلي المعتمد -->
-                <button onclick="alert('جاري توليد وتجهيز ملف الـ PDF الأكاديمي الكامل لهذا المصدر...')" class="btn btn-danger fw-bold px-3 py-2 btn-sm ms-3 flex-shrink-0">
-                    📥 تحميل المصدر PDF
-                </button>
+                <a href="{{ res.url }}" target="_blank" class="btn btn-danger fw-bold px-3 py-2 btn-sm ms-3 flex-shrink-0 align-self-center">
+                    📥 الرابط المباشر PDF
+                </a>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
+
+<style>
+    .hover-link:hover {
+        text-decoration: underline !important;
+        color: #1a202c !important;
+    }
+    .transition-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .transition-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    }
+</style>
 {% endif %}
 {% endblock %}
