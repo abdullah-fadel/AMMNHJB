@@ -11,17 +11,17 @@ app.secret_key = "academic_secret_key_123"
 
 API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
-DB_PATH = "academic_platform.db"
+
+# ذكاء في تحديد مسار قاعدة البيانات: إذا كان السيرفر على Render يختار المسار الدائم، وإذا حاسبتك يختار المسار العادي
+DB_PATH = "/data/academic_platform.db" if os.path.exists("/data") else "academic_platform.db"
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-# تهيئة قاعدة البيانات وإنشاء الجداول للمقالات والزيارات والاستخدام
 def init_db():
     conn = get_db_connection()
-    # جدول المقالات
     conn.execute('''
         CREATE TABLE IF NOT EXISTS articles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,26 +30,21 @@ def init_db():
             date TEXT NOT NULL
         )
     ''')
-    # جدول الزيارات الحقيقية الدائمة مع التاريخ
     conn.execute('''
         CREATE TABLE IF NOT EXISTS visitors_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             visit_date TEXT NOT NULL
         )
     ''')
-    # جدول استخدام الأدوات
     conn.execute('''
         CREATE TABLE IF NOT EXISTS tools_usage (
             tool_name TEXT PRIMARY KEY,
             usage_count INTEGER DEFAULT 0
         )
     ''')
-    
-    # إدخال العدادات الافتراضية للأدوات إذا لم تكن موجودة
     conn.execute("INSERT OR IGNORE INTO tools_usage (tool_name, usage_count) VALUES ('search', 0)")
     conn.execute("INSERT OR IGNORE INTO tools_usage (tool_name, usage_count) VALUES ('paraphrase', 0)")
     conn.execute("INSERT OR IGNORE INTO tools_usage (tool_name, usage_count) VALUES ('proposal', 0)")
-    
     conn.commit()
     conn.close()
 
@@ -74,37 +69,36 @@ def index():
     conn = get_db_connection()
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    # تسجيل زيارة حقيقية جديدة في قاعدة البيانات فور دخول أي مستخدم للموقع
-    # نستخدم الـ session فقط لمنع تكرار الحساب عند تحديث الصفحة في نفس اللحظة
     if 'visited_today' not in session:
         conn.execute('INSERT INTO visitors_log (visit_date) VALUES (?)', (current_time,))
         conn.commit()
         session['visited_today'] = True
 
-    # حساب الإحصائيات الزمنية الحقيقية من قاعدة البيانات
     current_year = datetime.now().strftime('%Y')
     current_month = datetime.now().strftime('%Y-%m')
 
-    total_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log').fetchone()[0]
-    year_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_year}%',)).fetchone()[0]
-    month_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_month}%',)).fetchone()[0]
-
-    tool_search = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='search'").fetchone()[0]
-    tool_paraphrase = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='paraphrase'").fetchone()[0]
-    tool_proposal = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='proposal'").fetchone()[0]
-
     stats = {
-        "total_visitors": total_visitors,
-        "year_visitors": year_visitors,
-        "month_visitors": month_visitors,
-        "tool_search_usage": tool_search,
-        "tool_paraphrase_usage": tool_paraphrase,
-        "tool_proposal_usage": tool_proposal
+        "total_visitors": conn.execute('SELECT COUNT(*) FROM visitors_log').fetchone()[0],
+        "year_visitors": conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_year}%',)).fetchone()[0],
+        "month_visitors": conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_month}%',)).fetchone()[0],
+        "tool_search_usage": conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='search'").fetchone()[0],
+        "tool_paraphrase_usage": conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='paraphrase'").fetchone()[0],
+        "tool_proposal_usage": conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='proposal'").fetchone()[0]
     }
     
     articles = conn.execute('SELECT * FROM articles ORDER BY id DESC').fetchall()
     conn.close()
     return render_template('index.html', articles=articles, stats=stats)
+
+# مسار عرض المقال الجديد والمستقل
+@app.route('/article/<int:id>')
+def view_article(id):
+    conn = get_db_connection()
+    article = conn.execute('SELECT * FROM articles WHERE id = ?', (id,)).fetchone()
+    conn.close()
+    if article is None:
+        return "المقال غير موجود", 404
+    return render_template('article.html', article=article)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -123,11 +117,9 @@ def login():
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_dashboard():
-    if not session.get('is_admin'):
-        return redirect(url_for('login'))
+    if not session.get('is_admin'): return redirect(url_for('login'))
         
     conn = get_db_connection()
-    
     if request.method == 'POST' and request.form.get('action') == 'publish':
         title = request.form.get('title')
         content = request.form.get('content')
@@ -137,25 +129,16 @@ def admin_dashboard():
             conn.commit()
             return redirect(url_for('admin_dashboard'))
 
-    # جلب الإحصائيات للوحة التحكم
     current_year = datetime.now().strftime('%Y')
     current_month = datetime.now().strftime('%Y-%m')
 
-    total_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log').fetchone()[0]
-    year_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_year}%',)).fetchone()[0]
-    month_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_month}%',)).fetchone()[0]
-
-    tool_search = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='search'").fetchone()[0]
-    tool_paraphrase = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='paraphrase'").fetchone()[0]
-    tool_proposal = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='proposal'").fetchone()[0]
-
     stats = {
-        "total_visitors": total_visitors,
-        "year_visitors": year_visitors,
-        "month_visitors": month_visitors,
-        "tool_search_usage": tool_search,
-        "tool_paraphrase_usage": tool_paraphrase,
-        "tool_proposal_usage": tool_proposal
+        "total_visitors": conn.execute('SELECT COUNT(*) FROM visitors_log').fetchone()[0],
+        "year_visitors": conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_year}%',)).fetchone()[0],
+        "month_visitors": conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_month}%',)).fetchone()[0],
+        "tool_search_usage": conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='search'").fetchone()[0],
+        "tool_paraphrase_usage": conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='paraphrase'").fetchone()[0],
+        "tool_proposal_usage": conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='proposal'").fetchone()[0]
     }
     
     articles = conn.execute('SELECT * FROM articles ORDER BY id DESC').fetchall()
@@ -201,7 +184,6 @@ def tool_search():
     query = ""
     if request.method == 'POST':
         query = request.form.get('query', '')
-        # تحديث عداد أداة البحث في قاعدة البيانات
         conn = get_db_connection()
         conn.execute("UPDATE tools_usage SET usage_count = usage_count + 1 WHERE tool_name='search'")
         conn.commit()
@@ -279,3 +261,4 @@ def tool_proposal_view(): return render_template('tool_proposal.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
