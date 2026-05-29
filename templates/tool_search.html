@@ -1,44 +1,44 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="fw-bold text-dark">🔍 IQ أداة الباحث العراقي (المصادر المباشرة والمفتوحة)</h3>
+    <h3 class="fw-bold text-dark">🔍 IQ أداة الباحث العراقي (المصادر المفتوحة والمجانية)</h3>
     <a href="{{ url_for('tools_menu') }}" class="btn btn-back fw-bold">⬅️ العودة لقائمة الأدوات</a>
 </div>
 
 <div class="card p-4 shadow-sm border-0 bg-light mb-4">
     <form method="POST" action="{{ url_for('tool_search') }}">
-        <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث أو المتغيرات الأساسية (توليد 50 مصدراً حراً وبدون تكرار):</label>
+        <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث أو الكلمات المفتاحية (سيتم تصفية 50 مصدراً مجانياً وحراً بالكامل):</label>
         <div class="input-group">
             <input type="text" name="query" class="form-control form-control-lg shadow-none" placeholder="مثال: المناخ الأخلاقي أو إدارة الأزمات" value="{{ query }}" required>
-            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 استخراج 50 مصدراً حراً مباشراً</button>
+            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 استخراج 50 مصدر مفتوح ومجاني</button>
         </div>
-        <small class="text-primary d-block mt-2 fw-bold">🔒 نظام التصفية الذكي نشط: تم حظر وحذف دار المنظومة والمواقع المدفوعة. كافة الروابط المتاحة تفتح بشكل حر ومباشر تماماً.</small>
+        <small class="text-success d-block mt-2 fw-bold">🔒 تم تفعيل نظام حظر المواقع المدفوعة والمغلقة. جميع الروابط أدناه مفتوحة المصدر (Open Access).</small>
     </form>
 </div>
 
 {% if query %}
-<div class="alert alert-primary border-0 shadow-sm mb-4 fw-bold text-dark bg-opacity-10" style="background-color: #e3f2fd;">
-    📊 تم بنجاح استخراج وفلترة ({{ results|length }}) مصادر أكاديمية حقيقية ورصينة خالية تماماً من التكرار والمواقع المعقدة لـ "{{ query }}":
+<div class="alert alert-success border-0 shadow-sm mb-4 fw-bold text-dark">
+    ✅ تم بنجاح استخراج وفلترة ({{ results|length }}) مصادر علمية حقيقية، مفتوحة المصدر وغير مكررة لـ "{{ query }}":
 </div>
 
 <div class="row">
     {% for res in results %}
     <div class="col-12 mb-3">
-        <div class="card shadow-sm border-0 border-start border-primary border-4 p-4 bg-white rounded transition-card">
+        <div class="card shadow-sm border-0 border-start border-success border-4 p-4 bg-white rounded transition-card">
             <div class="d-flex justify-content-between align-items-start">
                 <div style="flex-grow: 1;">
                     <h5 class="fw-bold mb-3">
-                        <a href="{{ res.url }}" target="_blank" class="text-dark text-decoration-none hover-link-blue" title="اضغط لفتح المصدر الحر والمباشر فوراً">
-                            📄 {{ res.title }}
+                        <a href="{{ res.url }}" target="_blank" class="text-success text-decoration-none hover-link" title="اضغط لفتح المصدر الحر والمفتوح مباشرة">
+                            🔓 {{ res.title }}
                         </a>
                     </h5>
                     <p class="mb-1 fs-6"><strong>المؤلفون:</strong> <span class="text-muted">{{ res.authors }}</span></p>
                     <p class="mb-1 fs-6"><strong>السنة:</strong> <span class="text-muted">{{ res.year }}</span></p>
                     <p class="mb-2 fs-6"><strong>المجلة:</strong> <span class="text-muted">{{ res.journal }}</span></p>
-                    <p class="mb-0 fs-6 text-justify" style="line-height: 1.7; color: #4a5568;"><strong>الخلاصة المنهجية:</strong> <span class="text-secondary">{{ res.abstract }}</span></p>
+                    <p class="mb-0 fs-6 text-justify" style="line-height: 1.7; color: #4a5568;"><strong>الخلاصة الأكاديمية:</strong> <span class="text-secondary">{{ res.abstract }}</span></p>
                 </div>
-                <a href="{{ res.url }}" target="_blank" class="btn btn-primary fw-bold px-3 py-2 btn-sm ms-3 flex-shrink-0 align-self-center" style="background-color: #0d6efd; border: none;">
-                    📥 فتح المصدر المباشر
+                <a href="{{ res.url }}" target="_blank" class="btn btn-success fw-bold px-3 py-2 btn-sm ms-3 flex-shrink-0 align-self-center">
+                    🟢 فتح المصدر المجاني
                 </a>
             </div>
         </div>
@@ -47,16 +47,16 @@
 </div>
 
 <style>
-    .hover-link-blue:hover {
+    .hover-link:hover {
         text-decoration: underline !important;
-        color: #0d6efd !important;
+        color: #0f5132 !important;
     }
     .transition-card {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .transition-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08) !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
     }
 </style>
 {% endif %}
