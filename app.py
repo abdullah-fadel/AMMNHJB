@@ -4,6 +4,7 @@ import os
 import requests
 import json
 import sqlite3
+import re
 from datetime import datetime
 
 app = Flask(__name__)
@@ -12,7 +13,6 @@ app.secret_key = "academic_secret_key_123"
 API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-# ذكاء في تحديد مسار قاعدة البيانات: إذا كان السيرفر على Render يختار المسار الدائم، وإذا حاسبتك يختار المسار العادي
 DB_PATH = "/data/academic_platform.db" if os.path.exists("/data") else "academic_platform.db"
 
 def get_db_connection():
@@ -50,13 +50,43 @@ def init_db():
 
 init_db()
 
+def clean_academic_text(text):
+    """ تنظيف النص من أي علامات تنسيق ماركداون أو مقدمات ترحيبية """
+    # إزالة علامات الهاشتاغ والنجمتين والنجوم المفردة
+    text = re.sub(re.compile(r'#+'), '', text)
+    text = text.replace('**', '').replace('*', '')
+    
+    # إزالة العبارات الترحيبية الشائعة من الذكاء الاصطناعي في البداية
+    lines = text.split('\n')
+    cleaned_lines = []
+    skip_intro = True
+    
+    intro_keywords = ["بالتأكيد", "إليك", "التحرير الأكاديمي", "الصياغة المقترحة", "صياغة بديلة", "خطة بحث منهجية"]
+    
+    for line in lines:
+        stripped = line.strip()
+        if skip_intro:
+            # إذا كانت الأسطر الأولى تحتوي على كلمات ترحيبية فقط، نتخطاها
+            if any(keyword in stripped for keyword in intro_keywords) and len(stripped) < 100:
+                continue
+            else:
+                skip_intro = False
+        cleaned_lines.append(line)
+        
+    final_text = '\n'.join(cleaned_lines).strip()
+    # تنظيف إضافي لأي عوارض نقاط أو خطوط من مخلفات الماركداون في البداية
+    final_text = re.sub(r'^[:\-\s\=\.\~]+', '', final_text)
+    return final_text.strip()
+
 def call_deepseek(prompt, system_content):
     if not API_KEY: return "ERROR_NO_KEY"
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
     data = {"model": "deepseek-chat", "messages": [{"role": "system", "content": system_content}, {"role": "user", "content": prompt}], "temperature": 0.3}
     try:
         response = requests.post(DEEPSEEK_URL, json=data, headers=headers, timeout=60)
-        if response.status_code == 200: return response.json()['choices'][0]['message']['content']
+        if response.status_code == 200: 
+            raw_response = response.json()['choices'][0]['message']['content']
+            return clean_academic_text(raw_response)
         return "ERROR_SERVER"
     except Exception: return "ERROR_CONNECTION"
 
@@ -90,14 +120,12 @@ def index():
     conn.close()
     return render_template('index.html', articles=articles, stats=stats)
 
-# مسار عرض المقال الجديد والمستقل
 @app.route('/article/<int:id>')
 def view_article(id):
     conn = get_db_connection()
     article = conn.execute('SELECT * FROM articles WHERE id = ?', (id,)).fetchone()
     conn.close()
-    if article is None:
-        return "المقال غير موجود", 404
+    if article is None: return "المقال غير موجود", 404
     return render_template('article.html', article=article)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -236,8 +264,9 @@ def tool_paraphrase():
     
     data = request.get_json() or {}
     user_text = data.get('text', '')
-    prompt = f"أعد صياغة النص التالي بأسلوب أكاديمي رصين جداً: {user_text}"
-    result_text = call_deepseek(prompt, system_content="You are an expert Arabic academic editor.")
+    prompt = f"قم بإعادة صياغة النص التالي مباشرةً بأسلوب أكاديمي رصين ومحكم دون كتابة أي مقدمات أو عبارات ترحيبية أو التمهيد بـ 'إليك الصياغة' ودون استخدام علامات الهاشتاغ أو النجوم نهائياً، ابدأ بالنص المعاد صياغته فوراً: {user_text}"
+    system_content = "You are a strict Arabic academic editor. Output ONLY the rewritten academic text. Never say 'Sure', 'Certainly', or introduce the text. No markdown formatting like # or *."
+    result_text = call_deepseek(prompt, system_content=system_content)
     return jsonify({"result": result_text.strip()})
 
 @app.route('/tools/paraphrase_view')
@@ -252,8 +281,9 @@ def tool_proposal():
     
     data = request.get_json() or {}
     title = data.get('title', '')
-    prompt = f"اكتب وصغ خطة بحث منهجية أكاديمية متكاملة لعنوان البحث التالي: ({title})."
-    result_text = call_deepseek(prompt, system_content="You are a professional academic consultant.")
+    prompt = f"اكتب خطة بحث منهجية أكاديمية متكاملة لعنوان البحث التالي مباشرةً: ({title}). ابدأ بالخطة فوراً دون أي جمل ترحيبية أو تمهيدية مثل 'بالتأكيد'، ودون استخدام علامات هاشتاغ # أو نجوم * للعناوين، استخدم الأسطر العادية والتنظيم النصي النظيف فقط."
+    system_content = "You are a professional academic consultant. Output ONLY the research proposal structure directly. Never include conversational prefaces like 'Certainly' or 'Here is the plan'. Do NOT use markdown symbols like # or *."
+    result_text = call_deepseek(prompt, system_content=system_content)
     return jsonify({"result": result_text.strip()})
 
 @app.route('/tools/proposal_view')
@@ -261,4 +291,3 @@ def tool_proposal_view(): return render_template('tool_proposal.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
