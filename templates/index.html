@@ -1,11 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
-<!-- القسم التعريفي (Hero Section) -->
 <div class="row rounded-4 overflow-hidden mb-5 shadow">
     <div class="col-12 hero-section text-center p-5">
-        <h1 class="fw-bold mb-3 display-4">مرحباً بك في المنصة الأكاديمية الذكية</h1>
+        <h1 class="fw-bold mb-3 display-4">مرحباً بك في مكتبة الإنجاز الإلكترونية  </h1>
         <p class="lead fs-5 max-width-600 mx-auto">
-            بوابتك الرقمية المتكاملة لتعزيز رصانة البحوث العلمية والرسائل الجامعية. نقدم أدوات متطورة تعتمد على أحدث نماذج الذكاء الاصطناعي لمساندة الباحث الأكاديمي العراقي والعربي في مسيرته العلمية بجودة ودقة متناهية.
+            بوابتك الرقمية المتكاملة لتعزيز رصانة البحوث العلمية والرسائل الجامعية. نقدم أدوات متطورة تعتمد على أحدث نماذج الذكاء الاصطناعي لمساندة الباحث في مسيرته العلمية.
         </p>
         <div class="mt-4">
             <a href="{{ url_for('tools_menu') }}" class="btn btn-warning btn-lg fw-bold px-5 py-3 shadow">ابدأ استخدام الأدوات الذكية الآن ⚡</a>
@@ -13,23 +12,22 @@
     </div>
 </div>
 
-<!-- خدماتنا بشكل سريع -->
 <h3 class="fw-bold text-center mb-4 text-secondary">الخدمات والحلول البحثية</h3>
 <div class="row g-4 mb-5">
     <div class="col-md-4">
-        <div class="card h-100 p-4 text-center">
+        <div class="card h-100 p-4 text-center border-0 shadow-sm">
             <h5 class="fw-bold text-primary">🔍 أداة الباحث العراقي</h5>
-            <p class="text-muted small">توفير ما لا يقل عن 20 مصدر علمي حديث ومجاني لكل عنوان بحثي مع روابط تحميل مباشرة.</p>
+            <p class="text-muted small">توفير ما لا يقل عن 50 مصدر علمي حديث ومجاني لكل عنوان بحثي مع روابط تحميل مباشرة.</p>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card h-100 p-4 text-center">
+        <div class="card h-100 p-4 text-center border-0 shadow-sm">
             <h5 class="fw-bold text-primary">✍️ صياغة بشرية محكمة</h5>
             <p class="text-muted small">إعادة صياغة هيكلية ونصوص الأوراق الأكاديمية بأسلوب بشري رصين لتجاوز فحص الاستلال.</p>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card h-100 p-4 text-center">
+        <div class="card h-100 p-4 text-center border-0 shadow-sm">
             <h5 class="fw-bold text-primary">📊 بناء خطط البحوث</h5>
             <p class="text-muted small">توليد متكامل لمنهجيات ومقترحات البحث العلمي وفق المعايير الأكاديمية الرصينة بضغطة زر.</p>
         </div>
@@ -38,42 +36,26 @@
 
 <hr>
 
-<!-- قسم المقالات والأخبار -->
 <h2 class="fw-bold text-dark my-4">آخر المقالات والأخبار الأكاديمية</h2>
-<div class="row g-4">
+<div class="row g-4 mb-5">
     {% for article in articles %}
-    <div class="col-md-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body p-4">
-                <div class="text-muted small mb-2">🗓️ نُشر بتاريخ: {{ article.date }}</div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden">
+            <div class="card-body d-flex flex-column p-4">
+                <div class="text-muted small mb-2">🗓️ {{ article.date }}</div>
                 <h4 class="card-title fw-bold text-primary mb-3">{{ article.title }}</h4>
-                <p class="card-text text-secondary text-truncate-3">{{ article.content[:200] }}...</p>
-                <button class="btn btn-outline-primary btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#articleModal{{ article.id }}">اقرأ المقال كاملاً</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- نافذة منبثقة لقراءة المقال كاملاً -->
-    <div class="modal fade" id="articleModal{{ article.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title fw-bold text-primary">{{ article.title }}</h5>
-                    <button type="button" class="btn-close ms-0 me-auto" data-bs-shadow="none" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body fs-5 p-4" style="line-height: 1.8; white-space: pre-wrap;">
-                    {{ article.content }}
-                </div>
-                <div class="modal-footer">
-                    <span class="text-muted small me-auto">تاريخ النشر: {{ article.date }}</span>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
-                </div>
+                <p class="card-text text-secondary mb-4" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.6;">
+                    {{ article.content|striptags }}
+                </p>
+                <a href="{{ url_for('view_article', id=article.id) }}" class="btn btn-outline-primary mt-auto fw-bold w-100 rounded-pill">قراءة المقال كاملاً 📖</a>
             </div>
         </div>
     </div>
     {% else %}
     <div class="col-12">
-        <div class="alert alert-info text-center">لا توجد مقالات منشورة حالياً.</div>
+        <div class="alert alert-info text-center border-0 shadow-sm rounded-4 py-4">
+            <h5 class="mb-0">لا توجد مقالات منشورة حالياً، عد لاحقاً!</h5>
+        </div>
     </div>
     {% endfor %}
 </div>
