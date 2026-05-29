@@ -3,62 +3,107 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import os
 import requests
 import json
+import sqlite3
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "academic_secret_key_123"
 
 API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+DB_PATH = "academic_platform.db"
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# تهيئة قاعدة البيانات وإنشاء الجداول للمقالات والزيارات والاستخدام
+def init_db():
+    conn = get_db_connection()
+    # جدول المقالات
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS articles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            date TEXT NOT NULL
+        )
+    ''')
+    # جدول الزيارات الحقيقية الدائمة مع التاريخ
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS visitors_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visit_date TEXT NOT NULL
+        )
+    ''')
+    # جدول استخدام الأدوات
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS tools_usage (
+            tool_name TEXT PRIMARY KEY,
+            usage_count INTEGER DEFAULT 0
+        )
+    ''')
+    
+    # إدخال العدادات الافتراضية للأدوات إذا لم تكن موجودة
+    conn.execute("INSERT OR IGNORE INTO tools_usage (tool_name, usage_count) VALUES ('search', 0)")
+    conn.execute("INSERT OR IGNORE INTO tools_usage (tool_name, usage_count) VALUES ('paraphrase', 0)")
+    conn.execute("INSERT OR IGNORE INTO tools_usage (tool_name, usage_count) VALUES ('proposal', 0)")
+    
+    conn.commit()
+    conn.close()
+
+init_db()
 
 def call_deepseek(prompt, system_content):
-    if not API_KEY:
-        return "ERROR_NO_KEY"
-    
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    data = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.3
-    }
-    
+    if not API_KEY: return "ERROR_NO_KEY"
+    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+    data = {"model": "deepseek-chat", "messages": [{"role": "system", "content": system_content}, {"role": "user", "content": prompt}], "temperature": 0.3}
     try:
         response = requests.post(DEEPSEEK_URL, json=data, headers=headers, timeout=60)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
+        if response.status_code == 200: return response.json()['choices'][0]['message']['content']
         return "ERROR_SERVER"
-    except Exception:
-        return "ERROR_CONNECTION"
+    except Exception: return "ERROR_CONNECTION"
 
-# مسار خفيف جداً يمنع السيرفر من التعليق ويوقظه فوراً عند الطلب
 @app.route('/api/ping')
 def ping_server():
     return jsonify({"status": "online"})
 
 @app.route('/')
 def index():
-    if 'total_visitors' not in session:
-        session['total_visitors'] = 1
-    else:
-        session['total_visitors'] += 1
+    conn = get_db_connection()
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # تسجيل زيارة حقيقية جديدة في قاعدة البيانات فور دخول أي مستخدم للموقع
+    # نستخدم الـ session فقط لمنع تكرار الحساب عند تحديث الصفحة في نفس اللحظة
+    if 'visited_today' not in session:
+        conn.execute('INSERT INTO visitors_log (visit_date) VALUES (?)', (current_time,))
+        conn.commit()
+        session['visited_today'] = True
+
+    # حساب الإحصائيات الزمنية الحقيقية من قاعدة البيانات
+    current_year = datetime.now().strftime('%Y')
+    current_month = datetime.now().strftime('%Y-%m')
+
+    total_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log').fetchone()[0]
+    year_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_year}%',)).fetchone()[0]
+    month_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_month}%',)).fetchone()[0]
+
+    tool_search = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='search'").fetchone()[0]
+    tool_paraphrase = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='paraphrase'").fetchone()[0]
+    tool_proposal = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='proposal'").fetchone()[0]
 
     stats = {
-        "total_visitors": session['total_visitors'],
-        "tool_search_usage": session.get('tool_search_usage', 0),
-        "tool_paraphrase_usage": session.get('tool_paraphrase_usage', 0),
-        "tool_proposal_usage": session.get('tool_proposal_usage', 0)
+        "total_visitors": total_visitors,
+        "year_visitors": year_visitors,
+        "month_visitors": month_visitors,
+        "tool_search_usage": tool_search,
+        "tool_paraphrase_usage": tool_paraphrase,
+        "tool_proposal_usage": tool_proposal
     }
     
-    articles = [
-        {"id": 1, "title": "استراتيجيات تجاوز فحص الاستلال العلمي في الجامعات العراقية", "date": "2026-05-15", "content": "تعتبر الأمانة العلمية ورصانة البحوث حجر الزاوية في الدراسات العليا والأولية."},
-        {"id": 2, "title": "أهمية اختيار المنهجية البحثية الملائمة في بحوث العلوم الإدارية", "date": "2026-05-20", "content": "يتوقف نجاح البحث العلمي على دقة المنهج المتبع في البحوث الإدارية والمالية."}
-    ]
+    articles = conn.execute('SELECT * FROM articles ORDER BY id DESC').fetchall()
+    conn.close()
     return render_template('index.html', articles=articles, stats=stats)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -67,39 +112,88 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        if username == 'admin' and password == 'password123':
-            session['is_admin'] = True  # حفظ الجلسة ليتم التعرف على الأدمن في القالب المشترك
+        ADMIN_USER = os.getenv("ADMIN_USERNAME", "admin")
+        ADMIN_PASS = os.getenv("ADMIN_PASSWORD", "password123")
+        if username == ADMIN_USER and password == ADMIN_PASS:
+            session['is_admin'] = True
             return redirect(url_for('admin_dashboard'))
         else:
             error = "اسم المستخدم أو كلمة المرور غير صحيحة!"
     return render_template('login.html', error=error)
 
-@app.route('/admin')
+@app.route('/admin', methods=['GET', 'POST'])
 def admin_dashboard():
     if not session.get('is_admin'):
-        return redirect(url_for('login')) # حماية الصفحة من الدخول العشوائي
+        return redirect(url_for('login'))
         
+    conn = get_db_connection()
+    
+    if request.method == 'POST' and request.form.get('action') == 'publish':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        if title and content:
+            conn.execute('INSERT INTO articles (title, content, date) VALUES (?, ?, ?)', (title, content, current_date))
+            conn.commit()
+            return redirect(url_for('admin_dashboard'))
+
+    # جلب الإحصائيات للوحة التحكم
+    current_year = datetime.now().strftime('%Y')
+    current_month = datetime.now().strftime('%Y-%m')
+
+    total_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log').fetchone()[0]
+    year_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_year}%',)).fetchone()[0]
+    month_visitors = conn.execute('SELECT COUNT(*) FROM visitors_log WHERE visit_date LIKE ?', (f'{current_month}%',)).fetchone()[0]
+
+    tool_search = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='search'").fetchone()[0]
+    tool_paraphrase = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='paraphrase'").fetchone()[0]
+    tool_proposal = conn.execute("SELECT usage_count FROM tools_usage WHERE tool_name='proposal'").fetchone()[0]
+
     stats = {
-        "total_visitors": session.get('total_visitors', 1),
-        "tool_search_usage": session.get('tool_search_usage', 0),
-        "tool_paraphrase_usage": session.get('tool_paraphrase_usage', 0),
-        "tool_proposal_usage": session.get('tool_proposal_usage', 0)
+        "total_visitors": total_visitors,
+        "year_visitors": year_visitors,
+        "month_visitors": month_visitors,
+        "tool_search_usage": tool_search,
+        "tool_paraphrase_usage": tool_paraphrase,
+        "tool_proposal_usage": tool_proposal
     }
     
-    articles = [
-        {"id": 1, "title": "استراتيجيات تجاوز فحص الاستلال العلمي في الجامعات العراقية", "date": "2026-05-15", "content": "تعتبر الأمانة العلمية ورصانة البحوث حجر الزاوية في الدراسات العليا والأولية."},
-        {"id": 2, "title": "أهمية اختيار المنهجية البحثية الملائمة في بحوث العلوم الإدارية", "date": "2026-05-20", "content": "يتوقف نجاح البحث العلمي على دقة المنهج المتبع في البحوث الإدارية والمالية."}
-    ]
+    articles = conn.execute('SELECT * FROM articles ORDER BY id DESC').fetchall()
+    conn.close()
     return render_template('admin.html', articles=articles, stats=stats)
+
+@app.route('/admin/edit/<int:id>', methods=['GET', 'POST'])
+def edit_article(id):
+    if not session.get('is_admin'): return redirect(url_for('login'))
+    conn = get_db_connection()
+    article = conn.execute('SELECT * FROM articles WHERE id = ?', (id,)).fetchone()
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        if title and content:
+            conn.execute('UPDATE articles SET title = ?, content = ? WHERE id = ?', (title, content, id))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('admin_dashboard'))
+    conn.close()
+    return render_template('edit.html', article=article)
+
+@app.route('/admin/delete/<int:id>')
+def delete_article(id):
+    if not session.get('is_admin'): return redirect(url_for('login'))
+    conn = get_db_connection()
+    conn.execute('DELETE FROM articles WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/logout')
 def logout():
-    session.pop('is_admin', None) # مسح الجلسة عند تسجيل الخروج
+    session.pop('is_admin', None)
     return redirect(url_for('index'))
 
 @app.route('/tools')
-def tools_menu():
-    return render_template('tools_menu.html')
+def tools_menu(): return render_template('tools_menu.html')
 
 @app.route('/tools/search', methods=['GET', 'POST'])
 def tool_search():
@@ -107,16 +201,18 @@ def tool_search():
     query = ""
     if request.method == 'POST':
         query = request.form.get('query', '')
-        session['tool_search_usage'] = session.get('tool_search_usage', 0) + 1
+        # تحديث عداد أداة البحث في قاعدة البيانات
+        conn = get_db_connection()
+        conn.execute("UPDATE tools_usage SET usage_count = usage_count + 1 WHERE tool_name='search'")
+        conn.commit()
+        conn.close()
         
         api_url = f"https://api.crossref.org/works?query={query}&filter=has-full-text:true&rows=70"
         raw_items = []
         try:
             res = requests.get(api_url, timeout=15)
-            if res.status_code == 200:
-                raw_items = res.json().get('message', {}).get('items', [])
-        except Exception:
-            raw_items = []
+            if res.status_code == 200: raw_items = res.json().get('message', {}).get('items', [])
+        except Exception: raw_items = []
 
         seen_titles = set()
         cleaned_base_data = []
@@ -125,129 +221,61 @@ def tool_search():
         for item in raw_items:
             title_list = item.get('title', [])
             title = title_list[0] if title_list else f"بحث متقدم في {query}"
-            
-            if title.lower() in seen_titles:
-                continue
-            
+            if title.lower() in seen_titles: continue
             link_source = "https://scholar.google.com"
             link_found = False
-            
             links = item.get('link', [])
             for l in links:
                 url_str = l.get('URL', '')
                 if url_str and not any(dom in url_str for dom in blocked_domains):
-                    link_source = url_str
-                    link_found = True
-                    break
-            
+                    link_source = url_str; link_found = True; break
             if not link_found:
                 doi = item.get('DOI', '')
-                if doi:
-                    link_source = f"https://eclass.uoa.gr/modules/document/index.php?course=DI111&download={doi}"
-                    if not link_source:
-                        link_source = f"https://doi.org/{doi}"
+                if doi: link_source = f"https://doi.org/{doi}"
 
             seen_titles.add(title.lower())
-            
             authors_list = item.get('author', [])
-            authors = ", ".join([f"{a.get('given', '')} {a.get('family', '')}" for a in authors_list[:3]]) if authors_list else "مجموعة من الباحثين الأكاديميين"
-            
+            authors = ", ".join([f"{a.get('given', '')} {a.get('family', '')}" for a in authors_list[:3]]) if authors_list else "مجموعة من الباحثين"
             year = str(item.get('published-print', {}).get('date-parts', [[2025]])[0][0])
-            journal_list = item.get('container-title', [])
-            journal = journal_list[0] if journal_list else "مجلة البحوث الحرة المفتوحة"
-            
-            cleaned_base_data.append({
-                "title": title,
-                "authors": authors,
-                "year": year,
-                "journal": journal,
-                "url": link_source
-            })
-            if len(cleaned_base_data) >= 50:
-                break
-
-        needed = 50 - len(cleaned_base_data)
-        if needed > 0:
-            prompt = f"""Generate exactly {needed} unique, completely free Open-Access academic references for ({query}) in Arabic.
-CRITICAL RULE: The URLs must link only to free websites like 'https://www.asjp.cerist.dz/' or Google Scholar free direct links. Do NOT include Springer, Wiley, or ScienceDirect.
-Return ONLY valid JSON array:
-"title": research title in Arabic
-"authors": names
-"year": 2020-2026
-"journal": Free Open-access journal name
-"url": Direct free URL link
-"abstract": Academic abstract in Arabic
-"""
-            system_search = "You are a precise academic data compiler. Return ONLY valid JSON as requested, with absolutely no markdown wrapper, no backticks, and no extra text."
-            ai_res = call_deepseek(prompt, system_content=system_search)
-            try:
-                ai_cleaned = ai_res.strip().replace("```json", "").replace("```", "").strip()
-                ai_data = json.loads(ai_cleaned)
-                for entry in ai_data:
-                    if entry.get("title", "").lower() not in seen_titles and len(cleaned_base_data) < 50:
-                        seen_titles.add(entry.get("title", "").lower())
-                        cleaned_base_data.append(entry)
-            except Exception:
-                pass
+            journal = item.get('container-title', ["مجلة البحوث الحرة"])[0]
+            cleaned_base_data.append({"title": title, "authors": authors, "year": year, "journal": journal, "url": link_source})
+            if len(cleaned_base_data) >= 50: break
 
         for item in cleaned_base_data:
-            abstract = item.get("abstract", "")
-            if not abstract:
-                abstract = f"دراسة علمية مجانية ومفتوحة تهدف لتأصيل وتحليل أبعاد ومتغيرات ({query}) وتطبيقاتها الميدانية لتقديم نموذج عملي متكامل يخدم الباحثين والمؤسسات."
-            
-            results.append({
-                "title": item["title"],
-                "authors": item["authors"],
-                "year": item["year"],
-                "journal": item["journal"],
-                "url": item["url"],
-                "abstract": abstract
-            })
-
+            results.append({"title": item["title"], "authors": item["authors"], "year": item["year"], "journal": item["journal"], "url": item["url"], "abstract": f"دراسة علمية مجانية ومفتوحة تهدف لتأصيل وتحليل أبعاد ومتغيرات ({query})."})
     return render_template('tool_search.html', results=results, query=query)
 
 @app.route('/tools/paraphrase', methods=['POST'])
 def tool_paraphrase():
-    session['tool_paraphrase_usage'] = session.get('tool_paraphrase_usage', 0) + 1
+    conn = get_db_connection()
+    conn.execute("UPDATE tools_usage SET usage_count = usage_count + 1 WHERE tool_name='paraphrase'")
+    conn.commit()
+    conn.close()
+    
     data = request.get_json() or {}
     user_text = data.get('text', '')
-    
-    prompt = f"أعد صياغة النص التالي بأسلوب أكاديمي رصين جداً ومفهوم لتجنب كشف الاستلال العلمي، مع الحفاظ التام على المعنى الأصلي للنص ودون وضع نجوم أو علامات غريبة أو صيغ برمجية: {user_text}"
-    system_paraphrase = "You are an expert Arabic academic editor. Return ONLY the plain rewritten text. No markdown, no JSON, no quotes, no brackets, no wrapper."
-    
-    result_text = call_deepseek(prompt, system_content=system_paraphrase)
-    
-    result_text = result_text.strip().replace('```json', '').replace('```', '')
-    if result_text.startswith('{') and result_text.endswith('}'):
-        try:
-            json_data = json.loads(result_text)
-            result_text = json_data.get('rewritten_text', list(json_data.values())[0])
-        except Exception:
-            pass
-            
-    return jsonify({"result": result_text})
+    prompt = f"أعد صياغة النص التالي بأسلوب أكاديمي رصين جداً: {user_text}"
+    result_text = call_deepseek(prompt, system_content="You are an expert Arabic academic editor.")
+    return jsonify({"result": result_text.strip()})
 
 @app.route('/tools/paraphrase_view')
-def tool_paraphrase_view():
-    return render_template('tool_paraphrase.html')
+def tool_paraphrase_view(): return render_template('tool_paraphrase.html')
 
 @app.route('/tools/proposal', methods=['POST'])
 def tool_proposal():
-    session['tool_proposal_usage'] = session.get('tool_proposal_usage', 0) + 1
+    conn = get_db_connection()
+    conn.execute("UPDATE tools_usage SET usage_count = usage_count + 1 WHERE tool_name='proposal'")
+    conn.commit()
+    conn.close()
+    
     data = request.get_json() or {}
     title = data.get('title', '')
-    
-    prompt = f"اكتب وصغ خطة بحث منهجية أكاديمية متكاملة ومفصلة جداً لعنوان البحث التالي: ({title}). رتب الأقسام بوضوح ونظافة وبدون أي نجوم مفردة أو مزدوجة وبدون أقواس برمجية."
-    system_proposal = "You are a professional academic consultant. Return the research proposal in clean, well-structured plain Arabic text. Do not wrap in JSON or brackets."
-    
-    result_text = call_deepseek(prompt, system_content=system_proposal)
-    
-    result_text = result_text.strip().replace('```json', '').replace('```', '')
-    return jsonify({"result": result_text})
+    prompt = f"اكتب وصغ خطة بحث منهجية أكاديمية متكاملة لعنوان البحث التالي: ({title})."
+    result_text = call_deepseek(prompt, system_content="You are a professional academic consultant.")
+    return jsonify({"result": result_text.strip()})
 
 @app.route('/tools/proposal_view')
-def tool_proposal_view():
-    return render_template('tool_proposal.html')
+def tool_proposal_view(): return render_template('tool_proposal.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
