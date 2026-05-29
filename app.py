@@ -10,7 +10,7 @@ app.secret_key = "academic_secret_key_123"
 API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-def call_deepseek(prompt):
+def call_deepseek(prompt, system_content):
     if not API_KEY:
         return "ERROR_NO_KEY"
     
@@ -22,10 +22,10 @@ def call_deepseek(prompt):
     data = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "You are a precise academic data compiler. Return ONLY valid JSON as requested, with absolutely no markdown wrapper, no backticks, and no extra text."},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.2
+        "temperature": 0.3
     }
     
     try:
@@ -80,8 +80,7 @@ def tool_search():
         query = request.form.get('query', '')
         session['tool_search_usage'] = session.get('tool_search_usage', 0) + 1
         
-        # استخدام محرك البحث الأكاديمي المفتوح الحقيقي مع تصفية صارمة للمستندات المجانية الحرة (Open Access) فقط
-        # قمنا بإضافة فلتر الـ open access وحظر المجلات المغلقة
+        # جلب البيانات من المراجع حرة الوصول المفتوحة
         api_url = f"https://api.crossref.org/works?query={query}&filter=has-full-text:true&rows=70"
         raw_items = []
         try:
@@ -94,7 +93,7 @@ def tool_search():
         seen_titles = set()
         cleaned_base_data = []
         
-        # قائمة بالدومينات الشهيرة التي تطلب اشتراكات ليتم حظرها تلقائياً
+        # حظر منصات الاشتراكات المعقدة والمدفوعة
         blocked_domains = ["sciencedirect.com", "springer.com", "wiley.com", "ieeexplore.ieee.org", "taylorandfrancis.com"]
 
         for item in raw_items:
@@ -104,15 +103,12 @@ def tool_search():
             if title.lower() in seen_titles:
                 continue
             
-            # استخراج روابط الـ Full Text المباشرة المجانية
             link_source = "https://scholar.google.com"
             link_found = False
             
-            # فحص إذا كان هناك رابط للملف المباشر
             links = item.get('link', [])
             for l in links:
                 url_str = l.get('URL', '')
-                # التأكد من أن الرابط ليس من الدومينات المحظورة المدفوعة
                 if url_str and not any(dom in url_str for dom in blocked_domains):
                     link_source = url_str
                     link_found = True
@@ -121,9 +117,7 @@ def tool_search():
             if not link_found:
                 doi = item.get('DOI', '')
                 if doi:
-                    # تحويل الرابط تلقائياً إلى خوادم المراجع المفتوحة المجانية المشهورة عالمياً
                     link_source = f"https://eclass.uoa.gr/modules/document/index.php?course=DI111&download={doi}"
-                    # أو توجيهه لرابط الـ DOI المباشر المفتوح
                     if not link_source:
                         link_source = f"https://doi.org/{doi}"
 
@@ -146,11 +140,10 @@ def tool_search():
             if len(cleaned_base_data) >= 50:
                 break
 
-        # إذا كانت الدفعة أقل من 50 بسبب الفلترة، نجعل الذكاء الاصطناعي يكملها بمصادر عربية وعالمية مفتوحة وحرة حصراً بروابط مباشرة
         needed = 50 - len(cleaned_base_data)
         if needed > 0:
             prompt = f"""Generate exactly {needed} unique, completely free Open-Access academic references for ({query}) in Arabic.
-CRITICAL RULE: The URLs must link only to free websites like 'https://www.asjp.cerist.dz/' (Algerian Scientific Journals) or IJS Global open library or Google Scholar free direct links. Do NOT include Springer, Wiley, or ScienceDirect.
+CRITICAL RULE: The URLs must link only to free websites like 'https://www.asjp.cerist.dz/' or Google Scholar free direct links. Do NOT include Springer, Wiley, or ScienceDirect.
 Return ONLY valid JSON array:
 "title": research title in Arabic
 "authors": names
@@ -159,7 +152,8 @@ Return ONLY valid JSON array:
 "url": Direct free URL link
 "abstract": Academic abstract in Arabic
 """
-            ai_res = call_deepseek(prompt)
+            system_search = "You are a precise academic data compiler. Return ONLY valid JSON as requested, with absolutely no markdown wrapper, no backticks, and no extra text."
+            ai_res = call_deepseek(prompt, system_content=system_search)
             try:
                 ai_cleaned = ai_res.strip().replace("```json", "").replace("```", "").strip()
                 ai_data = json.loads(ai_cleaned)
@@ -170,7 +164,6 @@ Return ONLY valid JSON array:
             except Exception:
                 pass
 
-        # بناء النتيجة النهائية وتعبئة الخلاصات الأكاديمية باللغة العربية
         for item in cleaned_base_data:
             abstract = item.get("abstract", "")
             if not abstract:
@@ -192,8 +185,21 @@ def tool_paraphrase():
     session['tool_paraphrase_usage'] = session.get('tool_paraphrase_usage', 0) + 1
     data = request.get_json() or {}
     user_text = data.get('text', '')
-    prompt = f"أعد صياغة النص التالي بأسلوب أكاديمي رصين جداً ومفهوم لتجنب كشف الاستلال العلمي، مع الحفاظ التام على المعنى الأصلي للنص ودون وضع نجوم أو علامات غريبة: {user_text}"
-    result_text = call_deepseek(prompt)
+    
+    prompt = f"أعد صياغة النص التالي بأسلوب أكاديمي رصين جداً ومفهوم لتجنب كشف الاستلال العلمي، مع الحفاظ التام على المعنى الأصلي للنص ودون وضع نجوم أو علامات غريبة أو صيغ برمجية: {user_text}"
+    system_paraphrase = "You are an expert Arabic academic editor. Return ONLY the plain rewritten text. No markdown, no JSON, no quotes, no brackets, no wrapper."
+    
+    result_text = call_deepseek(prompt, system_content=system_paraphrase)
+    
+    # [تنظيف ذاتي بالسيرفر] للتخلص من الأقواس وعلامات الاقتباس إن وجدت بالخطأ قبل إرسالها للواجهة
+    result_text = result_text.strip().replace('```json', '').replace('```', '')
+    if result_text.startswith('{') and result_text.endswith('}'):
+        try:
+            json_data = json.loads(result_text)
+            result_text = json_data.get('rewritten_text', list(json_data.values())[0])
+        except Exception:
+            pass
+            
     return jsonify({"result": result_text})
 
 @app.route('/tools/paraphrase_view')
@@ -205,8 +211,14 @@ def tool_proposal():
     session['tool_proposal_usage'] = session.get('tool_proposal_usage', 0) + 1
     data = request.get_json() or {}
     title = data.get('title', '')
-    prompt = f"اكتب وصغ خطة بحث منهجية أكاديمية متكاملة ومفصلة جداً لعنوان البحث التالي: ({title}). رتب الأقسام بوضوح ونظافة وبدون أي نجوم مفردة أو مزدوجة."
-    result_text = call_deepseek(prompt)
+    
+    prompt = f"اكتب وصغ خطة بحث منهجية أكاديمية متكاملة ومفصلة جداً لعنوان البحث التالي: ({title}). رتب الأقسام بوضوح ونظافة وبدون أي نجوم مفردة أو مزدوجة وبدون أقواس برمجية."
+    system_proposal = "You are a professional academic consultant. Return the research proposal in clean, well-structured plain Arabic text. Do not wrap in JSON or brackets."
+    
+    result_text = call_deepseek(prompt, system_content=system_proposal)
+    
+    # [تنظيف ذاتي بالسيرفر]
+    result_text = result_text.strip().replace('```json', '').replace('```', '')
     return jsonify({"result": result_text})
 
 @app.route('/tools/proposal_view')
