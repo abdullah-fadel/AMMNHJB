@@ -27,7 +27,6 @@
         <p class="mt-2 fw-bold text-secondary">جاري بناء مشكلة البحث، الفرضيات والأدوات المنهجية الـ10 حالياً...</p>
     </div>
     
-    <!-- تم تعديل الاستايل هنا ليدعم الحفاظ على الأسطر والفقرات النظيفة بشكل تلقائي ورصين -->
     <div id="proposalOutput" class="clean-output text-justify" style="min-height: 400px; line-height: 2; white-space: pre-wrap; font-size: 1.15rem; color: #2d3748; padding: 15px; background-color: #fcfcfc; border-radius: 8px;">
         بمجرد إدخال العنوان وضغط زر التوليد، ستظهر هنا الخطة المنهجية المكونة من (المقدمة، المشكلة، التساؤلات، الأهمية، الأهداف، الفرضيات، المتغيرات، الحدود، الأدوات، والدراسات السابقة المعيارية).
     </div>
@@ -50,21 +49,47 @@ function generateProposal() {
     .then(data => {
         document.getElementById('proposalLoading').classList.add('d-none');
         document.getElementById('proposalOutput').classList.remove('d-none');
+        
         if(data.result) {
-            // كود إضافي لتنظيف أي رموز نجمية أو زوائد وجعل النص في غاية النقاء
-            let cleanText = data.result.replace(/\*\*/g, '').replace(/\*/g, '•');
+            let rawText = data.result.trim();
+            
+            // 🛠️ فلترة ذكية جداً لحذف أي فضلات لملفات JSON أو علامات مكسورة
+            if (rawText.startsWith('{') && rawText.endsWith('}')) {
+                // إزالة الأقواس المجعدة الخارجية إذا ظهرت بالخطأ
+                rawText = rawText.substring(1, rawText.length - 1).trim();
+            }
+            
+            // تنظيف الكلمات الدلالية البرمجية وعلامات الاقتباس الطائرة
+            rawText = rawText.replace(/"proposal"\s*:\s*"/g, '')
+                             .replace(/"خطة_البحث"\s*:\s*"/g, '')
+                             .replace(/^"+|"+$/g, ''); // حذف علامات الاقتباس في أول وآخر النص
+            
+            // معالجة علامات النجوم وتعديلها لنقاط جذابة تليق بالخطط المنهجية العربي
+            let cleanText = rawText.replace(/\*\*/g, '').replace(/\*/g, '• ');
+            
+            // معالجة رموز الـ \n المكتوبة كـ نص لعرض سطر جديد حقيقي ومريح للعين
+            cleanText = cleanText.replace(/\\n/g, '\n');
+            
             document.getElementById('proposalOutput').innerText = cleanText;
+        } else {
+            document.getElementById('proposalOutput').innerText = "⚠️ عذراً، حدث خطأ أثناء معالجة البيانات الأكاديمية.";
         }
+    })
+    .catch(err => {
+        document.getElementById('proposalLoading').classList.add('d-none');
+        document.getElementById('proposalOutput').classList.remove('d-none');
+        document.getElementById('proposalOutput').innerText = "⚠️ فشل في الاتصال بالسيرفر، يرجى المحاولة لاحقاً.";
     });
 }
 
 function clearProposal() {
     document.getElementById('proposalTitle').value = "";
-    document.getElementById('proposalOutput').innerText = "بمجرد إدخال العنوان وضغط زر التوليد، ستظهر هنا الخطة المنهجية...";
+    document.getElementById('proposalOutput').innerText = "بمجرد إدخال العنوان وضغط زر التوليد، ستظهر هنا الخطة المنهجية المكونة من...";
 }
 
 function copyProposal() {
     const text = document.getElementById('proposalOutput').innerText;
+    if(text.includes('بمجرد إدخال العنوان')) { alert('لا يوجد نص مكتوب لنسخه حالياً!'); return; }
     navigator.clipboard.writeText(text);
     alert('تم نسخ خطة البحث والمنهجية بالكامل بنجاح! 📋');
 }
