@@ -1,17 +1,24 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="fw-bold text-dark">🔍 أداة الباحث العراقي (المصادر المفتوحة)</h3>
-    <a href="{{ url_for('tools_menu') }}" class="btn btn-back fw-bold">⬅️ العودة للأدوات</a>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold text-dark mb-0 fs-4 fs-md-3">🔍 أداة الباحث العراقي (المصادر المفتوحة)</h3>
+    <a href="{{ url_for('tools_menu') }}" class="btn btn-back fw-bold shadow-sm">⬅️ العودة للأدوات</a>
 </div>
 
 <div class="card p-4 shadow-sm border-0 bg-light mb-4 rounded-4">
     <form method="POST" action="{{ url_for('tool_search') }}">
         <label class="form-label fw-bold fs-5 mb-3">أدخل عنوان البحث أو الكلمات المفتاحية:</label>
-        <div class="input-group">
-            <input type="text" name="query" class="form-control form-control-lg shadow-none" placeholder="مثال: إدارة الأزمات" value="{{ query }}" required>
-            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 استخراج 50 مصدر</button>
+        
+        <!-- كود متجاوب بالكامل لحل مشكلة الموبايل والكمبيوتر -->
+        <div class="row g-2">
+            <div class="col-12 col-md-8 col-lg-9">
+                <input type="text" name="query" class="form-control form-control-lg shadow-none py-3" style="font-size: 1.1rem; border-radius: 12px;" placeholder="مثال: إدارة الأزمات والمخاطر..." value="{{ query }}" required>
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+                <button type="submit" class="btn btn-primary btn-lg fw-bold w-100 py-3" style="border-radius: 12px; font-size: 1.05rem; white-space: nowrap;">🚀 استخراج 50 مصدر</button>
+            </div>
         </div>
+        
         <small class="text-success d-block mt-3 fw-bold">🔒 تم تفعيل نظام حظر المواقع المدفوعة. جميع الروابط مفتوحة المصدر (Open Access).</small>
     </form>
 </div>
@@ -26,7 +33,7 @@
     <div class="col-12 col-md-6 col-lg-4">
         <div class="card h-100 shadow-sm border-0 border-top border-success border-4 rounded-4 transition-card">
             <div class="card-body d-flex flex-column p-4">
-                <h5 class="fw-bold mb-3" style="line-height: 1.5;">
+                <h5 class="fw-bold mb-3" style="line-height: 1.5; font-size: 1.1rem;">
                     <a href="{{ res.url }}" target="_blank" class="text-success text-decoration-none hover-link">
                         🔓 {{ res.title }}
                     </a>
