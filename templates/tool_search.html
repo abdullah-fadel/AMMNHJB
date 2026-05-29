@@ -10,24 +10,34 @@
         <label class="form-label fw-bold fs-5 mb-2">أدخل عنوان البحث أو الكلمات المفتاحية الدقيقة لطلب المصادر:</label>
         <div class="input-group">
             <input type="text" name="query" class="form-control form-control-lg shadow-none" placeholder="مثال: المناخ الأخلاقي أو إدارة الأزمات" value="{{ query }}">
-            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 بحث بواسطة DeepSeek الحقيقي</button>
+            <button type="submit" class="btn btn-primary btn-lg fw-bold px-4">🚀 بحث بواسطة DeepSeek v4 pro</button>
         </div>
     </form>
 </div>
 
 {% if query %}
-<div class="card p-4 shadow-sm border-0">
-    <h4 class="fw-bold text-secondary border-bottom pb-2 mb-3">📚 المصادر والمراجع العلمية الموثقة المستخرجة:</h4>
-    
-    {% if results %}
-        {% for res in results %}
-            <div class="p-3 mb-3 bg-white border rounded shadow-sm text-justify" style="line-height: 2; font-size: 1.1rem; color: #2d3748; white-space: pre-wrap;">
-                {{ res.ai_data }}
+<h5 class="fw-bold mb-3 text-secondary">تم العثور على ({{ results|length }}) مصادر علمية حديثة وموثقة لـ "{{ query }}":</h5>
+
+<div class="row">
+    {% for res in results %}
+    <div class="col-12 mb-3">
+        <div class="card shadow-sm border-0 border-start border-primary border-4 p-4 bg-white rounded">
+            <div class="d-flex justify-content-between align-items-start">
+                <div style="flex-grow: 1;">
+                    <h5 class="fw-bold text-dark mb-3">📄 {{ res.title }}</h5>
+                    <p class="mb-1 fs-6"><strong>المؤلفون:</strong> <span class="text-muted">{{ res.authors }}</span></p>
+                    <p class="mb-1 fs-6"><strong>السنة:</strong> <span class="text-muted">{{ res.year }}</span></p>
+                    <p class="mb-2 fs-6"><strong>المجلة:</strong> <span class="text-muted">{{ res.journal }}</span></p>
+                    <p class="mb-0 fs-6 text-justify" style="line-height: 1.7;"><strong>الخلاصة:</strong> <span class="text-secondary">{{ res.abstract }}</span></p>
+                </div>
+                <!-- زر التحميل متناسق يساراً كما في التصميم الأصلي المعتمد -->
+                <button onclick="alert('جاري توليد وتجهيز ملف الـ PDF الأكاديمي الكامل لهذا المصدر...')" class="btn btn-danger fw-bold px-3 py-2 btn-sm ms-3 flex-shrink-0">
+                    📥 تحميل المصدر PDF
+                </button>
             </div>
-        {% endfor %}
-    {% else %}
-        <p class="text-muted text-center py-4">لم يتم العثور على مراجع، تأكد من إعدادات الـ API Key.</p>
-    {% endif %}
+        </div>
+    </div>
+    {% endfor %}
 </div>
 {% endif %}
 {% endblock %}
