@@ -5,7 +5,6 @@
     <a href="{{ url_for('index') }}" class="btn btn-back fw-bold">⬅️ العودة للرئيسية</a>
 </div>
 
-<!-- كروت الإحصائيات الفورية والزوار -->
 <div class="row g-4 mb-5">
     <div class="col-md-3">
         <div class="card bg-primary text-white text-center p-4">
@@ -30,7 +29,7 @@
     </div>
     <div class="col-md-3">
         <div class="card bg-info text-white text-center p-4">
-            <h4 class="fw-bold">📋 خطط البحوث</h4>
+            <h4 class="fw-bold">📋 الخطط المنهجية</h4>
             <h2 class="display-5 fw-bold">{{ stats.tool_proposal_usage }}</h2>
             <small class="opacity-75">مرات الاستخدام</small>
         </div>
@@ -38,14 +37,13 @@
 </div>
 
 <div class="row g-4">
-    <!-- فورم نشر مقال جديد -->
     <div class="col-md-5">
         <div class="card p-4 shadow-sm border-0">
-            <h4 class="fw-bold text-primary mb-3">📝 نشر مقال أو توجيه جديد</h4>
-            <form action="{{ url_for('add_article') }}" method="POST">
+            <h4 class="fw-bold text-primary mb-3">✍️ نشر مقال أكاديمي جديد</h4>
+            <form action="#" method="POST">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">عنوان المقال:</label>
-                    <input type="text" name="title" class="form-control" placeholder="اكتب العنوان هنا..." required>
+                    <label class="form-label fw-bold">عنوان المقال الأكاديمي:</label>
+                    <input type="text" name="title" class="form-control" placeholder="مثال: آليات كتابة الإطار النظري" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">محتوى المقال العلمي:</label>
@@ -56,7 +54,6 @@
         </div>
     </div>
     
-    <!-- قائمة المقالات الحالية للمراجعة -->
     <div class="col-md-7">
         <div class="card p-4 shadow-sm border-0">
             <h4 class="fw-bold text-secondary mb-3">📰 المقالات المنشورة حالياً ({{ articles|length }})</h4>
