@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-body p-4 p-md-5">
+                    <h1 class="fw-bold text-primary mb-3" style="line-height: 1.5;">{{ article.title }}</h1>
+                    <div class="d-flex align-items-center text-muted mb-4 pb-3 border-bottom">
+                        <span class="badge bg-secondary me-2 fs-6 px-3 py-2">📅 {{ article.date }}</span>
+                        <span>مكتبة الإنجاز الإلكترونية</span>
+                    </div>
+                    
+                    <div class="article-content" style="font-size: 1.15rem; line-height: 1.9; color: #2c3e50;">
+                        {{ article.content|safe }}
+                    </div>
+                    
+                    <div class="mt-5 pt-4 border-top text-center">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary fw-bold px-5 py-2 rounded-pill shadow-sm">
+                            ⬅️ العودة للصفحة الرئيسية
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
