@@ -160,7 +160,7 @@ def index():
     }
     return render_template('index.html', articles=articles, stats=stats)
 
-@app.route('/login', codecs=['GET', 'POST'], methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST':
