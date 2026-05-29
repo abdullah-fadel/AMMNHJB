@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import os
 import requests
 import json
@@ -36,6 +36,11 @@ def call_deepseek(prompt, system_content):
     except Exception:
         return "ERROR_CONNECTION"
 
+# مسار خفيف جداً يمنع السيرفر من التعليق ويوقظه فوراً عند الطلب
+@app.route('/api/ping')
+def ping_server():
+    return jsonify({"status": "online"})
+
 @app.route('/')
 def index():
     if 'total_visitors' not in session:
@@ -63,10 +68,34 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         if username == 'admin' and password == 'password123':
-            return render_template('admin.html', articles=[], stats={"total_visitors": session.get('total_visitors', 1), "tool_search_usage": session.get('tool_search_usage', 0), "tool_paraphrase_usage": session.get('tool_paraphrase_usage', 0), "tool_proposal_usage": session.get('tool_proposal_usage', 0)})
+            session['is_admin'] = True  # حفظ الجلسة ليتم التعرف على الأدمن في القالب المشترك
+            return redirect(url_for('admin_dashboard'))
         else:
             error = "اسم المستخدم أو كلمة المرور غير صحيحة!"
     return render_template('login.html', error=error)
+
+@app.route('/admin')
+def admin_dashboard():
+    if not session.get('is_admin'):
+        return redirect(url_for('login')) # حماية الصفحة من الدخول العشوائي
+        
+    stats = {
+        "total_visitors": session.get('total_visitors', 1),
+        "tool_search_usage": session.get('tool_search_usage', 0),
+        "tool_paraphrase_usage": session.get('tool_paraphrase_usage', 0),
+        "tool_proposal_usage": session.get('tool_proposal_usage', 0)
+    }
+    
+    articles = [
+        {"id": 1, "title": "استراتيجيات تجاوز فحص الاستلال العلمي في الجامعات العراقية", "date": "2026-05-15", "content": "تعتبر الأمانة العلمية ورصانة البحوث حجر الزاوية في الدراسات العليا والأولية."},
+        {"id": 2, "title": "أهمية اختيار المنهجية البحثية الملائمة في بحوث العلوم الإدارية", "date": "2026-05-20", "content": "يتوقف نجاح البحث العلمي على دقة المنهج المتبع في البحوث الإدارية والمالية."}
+    ]
+    return render_template('admin.html', articles=articles, stats=stats)
+
+@app.route('/logout')
+def logout():
+    session.pop('is_admin', None) # مسح الجلسة عند تسجيل الخروج
+    return redirect(url_for('index'))
 
 @app.route('/tools')
 def tools_menu():
@@ -80,7 +109,6 @@ def tool_search():
         query = request.form.get('query', '')
         session['tool_search_usage'] = session.get('tool_search_usage', 0) + 1
         
-        # جلب البيانات من المراجع حرة الوصول المفتوحة
         api_url = f"https://api.crossref.org/works?query={query}&filter=has-full-text:true&rows=70"
         raw_items = []
         try:
@@ -92,8 +120,6 @@ def tool_search():
 
         seen_titles = set()
         cleaned_base_data = []
-        
-        # حظر منصات الاشتراكات المعقدة والمدفوعة
         blocked_domains = ["sciencedirect.com", "springer.com", "wiley.com", "ieeexplore.ieee.org", "taylorandfrancis.com"]
 
         for item in raw_items:
@@ -191,7 +217,6 @@ def tool_paraphrase():
     
     result_text = call_deepseek(prompt, system_content=system_paraphrase)
     
-    # [تنظيف ذاتي بالسيرفر] للتخلص من الأقواس وعلامات الاقتباس إن وجدت بالخطأ قبل إرسالها للواجهة
     result_text = result_text.strip().replace('```json', '').replace('```', '')
     if result_text.startswith('{') and result_text.endswith('}'):
         try:
@@ -217,7 +242,6 @@ def tool_proposal():
     
     result_text = call_deepseek(prompt, system_content=system_proposal)
     
-    # [تنظيف ذاتي بالسيرفر]
     result_text = result_text.strip().replace('```json', '').replace('```', '')
     return jsonify({"result": result_text})
 
