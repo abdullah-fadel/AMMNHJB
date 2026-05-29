@@ -6,7 +6,6 @@
 </div>
 
 <div class="row g-4">
-    <!-- حقل الإدخال المفيد (بدون حدود أحرف) -->
     <div class="col-md-6">
         <div class="card p-3 shadow-sm h-100">
             <label class="form-label fw-bold text-secondary mb-2">قم بلصق النص المراد صياغته هنا (مفتوح الحجم):</label>
@@ -18,15 +17,16 @@
         </div>
     </div>
     
-    <!-- حقل المخرجات النظيفة -->
     <div class="col-md-6">
         <div class="card p-3 shadow-sm h-100 d-flex flex-column">
             <label class="form-label fw-bold text-primary mb-2">النص المُعاد صياغته (تنسيق أكاديمي نظيف):</label>
-            <div id="loading" class="text-center my-auto d-none">
+            <div id="loading" class="text-center my-auto d-none py-5">
                 <div class="spinner-border text-success" role="status"></div>
                 <p class="mt-2 fw-bold text-muted">يقوم نموذج DeepSeek بإعادة الصياغة البشرية المانعة للاستلال حالياً...</p>
             </div>
-            <div id="outputContainer" class="clean-output flex-grow-1 d-block" style="min-height: 350px;">النص الجاهز للاقتباس سيظهر هنا...</div>
+            
+            <div id="outputContainer" class="clean-output flex-grow-1 d-block text-justify" style="min-height: 350px; line-height: 2; white-space: pre-wrap; font-size: 1.1rem; color: #2d3748; padding: 15px; background-color: #fcfcfc; border-radius: 8px;">النص الجاهز للاقتباس سيظهر هنا...</div>
+            
             <div class="mt-3 text-start">
                 <button onclick="copyText()" class="btn btn-primary fw-bold px-4">📋 نسخ النص بالكامل</button>
             </div>
@@ -51,11 +51,35 @@ function processParaphrase() {
     .then(data => {
         document.getElementById('loading').classList.add('d-none');
         document.getElementById('outputContainer').classList.remove('d-none');
+        
         if(data.result) {
-            document.getElementById('outputContainer').innerText = data.result;
+            let rawText = data.result.trim();
+            
+            // 🛠️ الفلترة الصارمة لإزالة أي أثر للأقواس المجعدة التلقائية التابعة لـ JSON
+            if (rawText.startsWith('{') && rawText.endsWith('}')) {
+                rawText = rawText.substring(1, rawText.length - 1).trim();
+            }
+            
+            // تنظيف الكلمات البرمجية الداخلية وعلامات الاقتباس المكسورة في البداية والنهاية
+            rawText = rawText.replace(/"rewritten_text"\s*:\s*"/g, '')
+                             .replace(/"result"\s*:\s*"/g, '')
+                             .replace(/^"+|"+$/g, ''); // قص علامات الاقتباس الخارجية
+            
+            // تحويل تجمعات رموز السطور \n النصية إلى سطور منسدلة حقيقية ومريحة للعين
+            let cleanText = rawText.replace(/\\n/g, '\n');
+            
+            // إزالة علامات النجوم إن وجدت لضمان النقاء الأكاديمي التام
+            cleanText = cleanText.replace(/\*\*/g, '').replace(/\*/g, '');
+            
+            document.getElementById('outputContainer').innerText = cleanText;
         } else {
-            document.getElementById('outputContainer').innerText = "حدث خطأ غير متوقع.";
+            document.getElementById('outputContainer').innerText = "⚠️ حدث خطأ أثناء جلب البيانات؛ يرجى المحاولة مرة أخرى.";
         }
+    })
+    .catch(err => {
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('outputContainer').classList.remove('d-none');
+        document.getElementById('outputContainer').innerText = "⚠️ فشل في الاتصال بالسيرفر؛ تأكد من اتصالك بالإنترنت.";
     });
 }
 
@@ -66,6 +90,7 @@ function clearText() {
 
 function copyText() {
     const text = document.getElementById('outputContainer').innerText;
+    if(text === "النص الجاهز للاقتباس سيظهر هنا...") { alert('لا يوجد نص معالج لنسخه حالياً!'); return; }
     navigator.clipboard.writeText(text);
     alert('تم نسخ النص المنسق والمحكم بنجاح إلى الحافظة! 📋');
 }
